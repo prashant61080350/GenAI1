@@ -8,3 +8,4 @@ huggingface_hub==0.24.5
 # Optional for local Transformers backend:
 # transformers==4.42.4
 # torch==2.3.1
+# Ollama: uses HTTP API at OLLAMA_HOST, no extra dependency required

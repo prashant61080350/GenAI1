@@ -4,9 +4,10 @@
 
 ```bash
 cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt --break-system-packages
 cp .env.example .env
+# Ensure Ollama is running and a model is pulled (e.g., llama3.2:1b):
+# ollama pull llama3.2:1b
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -20,9 +21,10 @@ API endpoints:
 This project is configured to run without heavy dependencies by default.
 Set `MODEL_BACKEND` in `.env` to control behavior:
 
-- `mock` (default): returns a placeholder echo for quick testing
+- `ollama` (default): uses a local open-source LLM served by Ollama (`OLLAMA_MODEL`, `OLLAMA_HOST`)
 - `hf_api`: uses Hugging Face Inference API (set `HF_API_MODEL`, `HF_API_TOKEN`)
 - `local`: uses Hugging Face Transformers locally (set `MODEL_NAME`)
+- `mock`: returns a placeholder echo for quick testing
 
 ### HF Inference API backend
 1. Ensure `huggingface_hub` is installed (already in requirements)
