@@ -1,0 +1,10 @@
+fastapi==0.111.0
+uvicorn[standard]==0.30.3
+sse-starlette==2.1.0
+pydantic==2.8.2
+python-dotenv==1.0.1
+httpx==0.27.0
+huggingface_hub==0.24.5
+# Optional for local Transformers backend:
+# transformers==4.42.4
+# torch==2.3.1
