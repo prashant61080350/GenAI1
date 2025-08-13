@@ -165,14 +165,83 @@ class LocalTransformersLLMProvider(BaseLLMProvider):
             raise LLMGenerationError(str(e))
 
 
+class OllamaLLMProvider(BaseLLMProvider):
+    def __init__(self, model: str, host: Optional[str] = None) -> None:
+        import httpx  # ensure availability at runtime
+        self.model = model
+        self.host = host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.client = httpx.Client(base_url=self.host, timeout=60)
+
+    def _format_prompt(self, user_message: str) -> str:
+        system = "You are a helpful assistant. Answer clearly and concisely."
+        return f"{system}\n\nUser: {user_message}\nAssistant:"
+
+    def generate_sync(self, user_message: str, max_new_tokens: int = 256, temperature: float = 0.7, top_p: float = 0.9) -> str:
+        prompt = self._format_prompt(user_message)
+        try:
+            resp = self.client.post(
+                "/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "num_predict": max_new_tokens,
+                    },
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("response", "").strip()
+        except Exception as e:
+            logger.exception("Ollama sync generation failed")
+            raise LLMGenerationError(str(e))
+
+    def generate_stream(self, user_message: str, max_new_tokens: int = 256, temperature: float = 0.7, top_p: float = 0.9):
+        prompt = self._format_prompt(user_message)
+        try:
+            with self.client.stream(
+                "POST",
+                "/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": True,
+                    "options": {
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "num_predict": max_new_tokens,
+                    },
+                },
+            ) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        import json as _json
+                        obj = _json.loads(line)
+                        token = obj.get("response")
+                        if token:
+                            yield token
+                    except Exception:
+                        # Ignore malformed lines
+                        continue
+        except Exception as e:
+            logger.exception("Ollama streaming failed")
+            raise LLMGenerationError(str(e))
+
+
 def get_llm_provider() -> BaseLLMProvider:
-    backend = os.getenv("MODEL_BACKEND", "mock").lower()
-    if backend not in {"mock", "local", "hf_api"}:
+    backend = os.getenv("MODEL_BACKEND", "ollama").lower()
+    if backend not in {"mock", "local", "hf_api", "ollama"}:
         logger.warning("Unknown MODEL_BACKEND '%s', defaulting to 'mock'", backend)
         backend = "mock"
 
     if backend == "mock":
-        logger.info("Using MockLLMProvider (set MODEL_BACKEND=local or hf_api to enable a real model)")
+        logger.info("Using MockLLMProvider (set MODEL_BACKEND=local, hf_api, or ollama to enable a real model)")
         return MockLLMProvider()
 
     if backend == "hf_api":
@@ -180,6 +249,12 @@ def get_llm_provider() -> BaseLLMProvider:
         token = os.getenv("HF_API_TOKEN")
         logger.info("Using HF Inference backend with model=%s", model)
         return HFInferenceLLMProvider(model=model, token=token)
+
+    if backend == "ollama":
+        model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
+        host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        logger.info("Using Ollama backend with model=%s host=%s", model, host)
+        return OllamaLLMProvider(model=model, host=host)
 
     # backend == local
     model = os.getenv("MODEL_NAME", "sshleifer/tiny-gpt2")

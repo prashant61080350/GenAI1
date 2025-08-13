@@ -15,7 +15,8 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 To use a real model, edit `.env`:
-- `MODEL_BACKEND=hf_api` and set `HF_API_MODEL`, `HF_API_TOKEN`
+- `MODEL_BACKEND=ollama` and set `OLLAMA_MODEL` (ensure Ollama is running and the model is pulled)
+- or `MODEL_BACKEND=hf_api` and set `HF_API_MODEL`, `HF_API_TOKEN`
 - or `MODEL_BACKEND=local` and set `MODEL_NAME` (install `transformers` and `torch`)
 
 ## Run frontend
